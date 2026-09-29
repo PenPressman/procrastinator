@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Am I Procrastinating?</title>
+<meta name="description" content="A rigorous diagnostic tool. The answer is always yes." />
+<meta property="og:title" content="Am I Procrastinating?" />
+<meta property="og:description" content="A rigorous diagnostic tool. The answer is always yes." />
+<meta property="og:type" content="website" />
+<style>
+  :root {
+    --bg: #0a0a0b;
+    --fg: #f4f4f5;
+    --muted: #6b7280;
+    --accent: #dc2626;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--mono);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+    padding: 24px;
+    overflow: hidden;
+    text-align: center;
+  }
+  #app { width: 100%; max-width: 640px; }
+
+  /* Analyzing state */
+  .analyzing .label {
+    font-size: 13px;
+    letter-spacing: 0.35em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+  .analyzing h1 {
+    font-size: clamp(20px, 5vw, 30px);
+    font-weight: 500;
+    margin-bottom: 32px;
+    color: var(--fg);
+  }
+  .log {
+    text-align: left;
+    display: inline-block;
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 2;
+    min-height: 8em;
+  }
+  .log .idx { color: var(--accent); }
+  .cursor {
+    display: inline-block;
+    width: 8px;
+    height: 1.1em;
+    background: var(--fg);
+    vertical-align: text-bottom;
+    animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* Result state */
+  .result { display: none; animation: fadein 0.4s ease both; }
+  .result .verdict {
+    font-size: clamp(96px, 30vw, 260px);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 0.9;
+    color: var(--accent);
+  }
+  .result .confidence {
+    font-size: 15px;
+    color: var(--muted);
+    margin-top: 16px;
+    letter-spacing: 0.05em;
+  }
+  .result .subtitle {
+    font-size: clamp(15px, 3.5vw, 19px);
+    color: var(--fg);
+    margin-top: 28px;
+    min-height: 1.4em;
+  }
+  button {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--fg);
+    background: transparent;
+    border: 1px solid #27272a;
+    padding: 12px 22px;
+    margin-top: 40px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  @keyframes fadein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  footer {
+    position: fixed;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    left: 0; right: 0;
+    font-size: 12px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+  <div id="app">
+    <div class="analyzing" id="analyzing">
+      <div class="label">Analyzing</div>
+      <h1>Analyzing your behavior&hellip;</h1>
+      <div class="log" id="log"></div>
+    </div>
+
+    <div class="result" id="result">
+      <div class="verdict">YES</div>
+      <div class="confidence">Confidence: 100%</div>
+      <div class="subtitle" id="subtitle"></div>
+      <button id="again">Run analysis again</button>
+    </div>
+  </div>
+
+  <footer>A Harvard Lampoon production. Now get back to work.</footer>
+
+<script>
+  const steps = [
+    "checking tab count...",
+    "detecting Lamont Wi-Fi...",
+    "measuring guilt...",
+    "cross-referencing your to-do list...",
+    "estimating time until deadline...",
+    "consulting your search history...",
+    "quantifying denial..."
+  ];
+
+  const firstSubtitle = "You're literally scanning random QR codes instead of working.";
+
+  const subtitles = [
+    "You are literally on this website.",
+    "This tab is not your problem set.",
+    "The reading did not read itself.",
+    "You have been here for four minutes.",
+    "Statistically, you know this already.",
+    "The deadline is closer than it appears."
+  ];
+
+  const logEl = document.getElementById("log");
+  const analyzingEl = document.getElementById("analyzing");
+  const resultEl = document.getElementById("result");
+  const subtitleEl = document.getElementById("subtitle");
+  const againBtn = document.getElementById("again");
+
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  let firstRun = true;
+
+  function runAnalysis() {
+    resultEl.style.display = "none";
+    analyzingEl.style.display = "block";
+    logEl.innerHTML = "";
+    let i = 0;
+
+    function nextStep() {
+      if (i < steps.length) {
+        const line = document.createElement("div");
+        const n = String(i + 1).padStart(2, "0");
+        line.innerHTML = '<span class="idx">[' + n + ']</span> ' + steps[i] + ' <span class="cursor"></span>';
+        // remove cursor from previous line
+        const prevCursor = logEl.querySelector(".cursor");
+        if (prevCursor) prevCursor.remove();
+        logEl.appendChild(line);
+        i++;
+        setTimeout(nextStep, 280 + Math.random() * 220);
+      } else {
+        setTimeout(showResult, 500);
+      }
+    }
+    nextStep();
+  }
+
+  function showResult() {
+    analyzingEl.style.display = "none";
+    subtitleEl.textContent = firstRun ? firstSubtitle : pick(subtitles);
+    firstRun = false;
+    resultEl.style.display = "block";
+  }
+
+  againBtn.addEventListener("click", runAnalysis);
+  runAnalysis();
+</script>
+</body>
+</html>
